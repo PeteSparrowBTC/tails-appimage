@@ -1,0 +1,21 @@
+#!/bin/sh
+# AppImage entry point for the Tauri shell.
+#
+# Deliberately thin. Tauri's own bundler produces an 83 MB image because it copies the whole
+# WebKitGTK and GTK stack in, so the result runs on distributions that lack them. Tails is not
+# such a distribution: libwebkit2gtk-4.1-0, libgtk-3-0t64, libsoup-3.0-0 and librsvg2-2 are all
+# in its package manifest, verified for 7.10.1. Bundling a browser engine we already know is
+# present triples the size and pins a rendering stack, so this packaging bundles nothing.
+#
+# The frontend is not here either: Tauri embeds the published Blazor output into the executable
+# at compile time, so usr/bin/yourapp carries the app inside it.
+#
+# No check gates startup. An earlier AppRun in this repository ran ldconfig, could not find it
+# on a normal user's PATH, and refused to launch a working application on Tails. If a library
+# really is missing, the dynamic linker names it far more precisely than a shell script can.
+
+HERE="$(dirname "$(readlink -f "$0")")"
+
+export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+
+exec "$HERE/usr/bin/yourapp" "$@"

@@ -1,0 +1,53 @@
+# A GitHub Actions job that builds a Tails-compatible AppImage. Drop into an existing workflow
+# and adapt the two marked lines.
+#
+# It bundles nothing: no WebKitGTK, no GTK. That is deliberate and is what keeps the result
+# around 11 MB instead of 83. Tails ships those libraries; see the README.
+
+appimage:
+  runs-on: ubuntu-latest
+
+  steps:
+    - uses: actions/checkout@v4
+
+    # ADAPT: build your application here, into a folder you copy from below.
+    - name: Build the application
+      run: echo "your build goes here"
+
+    - name: Assemble the AppDir
+      run: |
+        mkdir -p AppDir/usr/bin
+        cp path/to/your/executable AppDir/usr/bin/yourapp     # ADAPT
+        cp templates/AppRun AppDir/AppRun
+        cp templates/app.desktop AppDir/yourapp.desktop
+        cp templates/yourapp.png AppDir/yourapp.png           # must be RGBA
+        chmod +x AppDir/AppRun AppDir/usr/bin/yourapp
+
+    # Pinned and checksum-verified. This binary helps produce the artifact your users run, so
+    # fetching an unversioned copy and executing it is not acceptable. Update both values
+    # together when bumping the version.
+    - name: Build the AppImage
+      env:
+        APPIMAGETOOL_VERSION: '1.9.1'
+        APPIMAGETOOL_SHA256: 'ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0'
+      run: |
+        wget -q "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage"
+        echo "${APPIMAGETOOL_SHA256}  appimagetool-x86_64.AppImage" | sha256sum -c -
+        chmod +x appimagetool-x86_64.AppImage
+        ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir yourapp-x86_64.AppImage
+        sha256sum yourapp-x86_64.AppImage | tee yourapp-x86_64.AppImage.sha256
+
+    # Record what the binary actually needs. Debian 13 and Tails ship only webkit2gtk 4.1, so a
+    # 4.0 link fails on the one platform that matters, and the failure looks like an
+    # application bug. Keeping this in the log makes it checkable instead of remembered.
+    - name: Report the native dependencies
+      run: readelf -d AppDir/usr/bin/yourapp | grep NEEDED || true
+
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: yourapp-appimage
+        path: |
+          yourapp-x86_64.AppImage
+          yourapp-x86_64.AppImage.sha256
+        if-no-files-found: error

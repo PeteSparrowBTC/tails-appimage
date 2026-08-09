@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Your App
+Comment=One line about your app
+Exec=yourapp
+Icon=yourapp
+Categories=Utility;Security;
+Terminal=false
