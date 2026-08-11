@@ -1,0 +1,20 @@
+# Files in templates/ are copied into somebody's Linux build and executed there, so they must keep
+# LF line endings in the working tree on every platform.
+#
+# Why this is not cosmetic: git on Windows checks files out with CRLF by default, which turns the
+# shebang into "#!/bin/sh\r". A POSIX shell then reports "bad interpreter: No such file or
+# directory", naming a path that plainly exists, which is one of the more time-consuming errors to
+# read. AppRun and the bundle scripts are the files this would hit.
+#
+# The patterns are enumerated by type rather than written as templates/**, and the icon is marked
+# binary explicitly. A blanket text rule over a directory containing a PNG corrupts the PNG: git
+# strips CR bytes from it on commit, and the first sign of trouble is an icon that no longer
+# decodes. That happened while writing this file, which is why the rule is narrow.
+templates/AppRun text eol=lf
+*.sh text eol=lf
+*.txt text eol=lf
+*.desktop text eol=lf
+*.yml text eol=lf
+
+*.png binary
+*.AppImage binary

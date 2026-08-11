@@ -1,0 +1,75 @@
+yourapp @VERSION@
+What to do with this folder, on an offline Tails machine.
+
+Template. Replace yourapp and the two lines under "WHEN YOU ARE USING IT" with whatever your
+application actually needs. @VERSION@ and @SHA256@ are substituted by build-bundle.sh; do not
+type either value in by hand.
+
+This file is written for someone who does not use a terminal. Keep it that way. It is the only
+documentation present at the machine where it will be read, so anything it leaves out is
+unavailable rather than merely inconvenient.
+
+
+WHAT IS IN THIS FOLDER
+
+  yourapp-@VERSION@-x86_64.AppImage    the app
+  SHA256SUMS                           a fingerprint of the app
+  start-here.sh                        checks the fingerprint, then opens the app
+  READ-THIS-FIRST.txt                  this file
+
+
+STEP 1. COPY THIS WHOLE FOLDER INTO YOUR HOME FOLDER
+
+Open the Files window and drag this folder into Home, then work from the copy.
+
+Programs are usually not allowed to run from a USB stick, so this is not optional. Copy the
+whole folder rather than one file: they have to stay together.
+
+
+STEP 2. RIGHT-CLICK start-here.sh AND CHOOSE "RUN AS A PROGRAM"
+
+Do not double-click it. Double-clicking opens it in a text editor, which is confusing and
+does nothing.
+
+If "Run as a Program" is not in the menu, the file needs permission to run first:
+
+  1. Right-click start-here.sh and choose Properties
+  2. Turn on "Executable as Program"
+  3. Close the window, right-click again, and choose "Run as a Program"
+
+
+STEP 3. READ THE WINDOW THAT APPEARS
+
+If it says the app has been checked, press Start and the app opens.
+
+If it says DO NOT USE THIS FILE, then stop. The app in this folder is not the file that was
+packaged with these instructions. It may have been damaged while copying, or changed by
+something else. Delete it and ask whoever gave you this for a fresh copy.
+
+
+WHAT THE CHECK DOES AND DOES NOT TELL YOU
+
+It tells you the app is exactly the file that was packaged with these instructions: not
+damaged, not half-copied, not altered on the stick afterwards.
+
+It does not tell you the download itself was genuine. The fingerprint travels in this same
+folder, so anyone able to replace the app could have replaced the fingerprint too. For that
+part you are trusting whoever gave you this and told you it was safe.
+
+
+IF YOU WOULD RATHER CHECK IT YOURSELF
+
+Open Terminal and type these two lines. The second prints one line ending in OK.
+
+  cd ~/yourapp-@VERSION@-tails
+  sha256sum -c SHA256SUMS
+
+The fingerprint should be:
+
+  @SHA256@
+
+
+WHEN YOU ARE FINISHED
+
+Shut Tails down. It keeps nothing, so this folder and everything you typed are gone when the
+machine turns off.
