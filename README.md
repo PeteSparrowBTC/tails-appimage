@@ -286,22 +286,84 @@ artifact that gets reviewed is the artifact that gets published. Then assert the
 are not self-evident:
 
 ```bash
-# 1. the archive stores the modes it is supposed to. This is a property of the zipping
+# 1. the checker refuses a file that does not match, and refuses for the reason under
+#    test. Assert this BEFORE zipping: what the checker does is a property of the staged
+#    folder, so it needs no archive, fails sooner, and runs on a machine with no zip.
+cp -r bundle tampered && printf 'x' >> tampered/yourapp-*.AppImage
+output="$( cd tampered && ./start-here.sh --check-only 2>&1 )" && exit 1
+printf '%s' "$output" | grep -qF "DO NOT USE THIS FILE" || exit 1
+
+# 2. the archive stores the modes it is supposed to. This is a property of the zipping
 #    tool, not a certainty.
 zipinfo bundle.zip | grep -qE "^-rwxr-xr-x.* start-here\.sh$"      || exit 1
 zipinfo bundle.zip | grep -qE "^-rw-r--r--.* yourapp.*\.AppImage$" || exit 1
-
-# 2. the checker refuses a file that does not match. A verification that has never
-#    failed is not known to work.
-cp -r bundle tampered && printf 'x' >> tampered/yourapp-*.AppImage
-if ( cd tampered && ./start-here.sh --check-only ); then exit 1; fi
 ```
 
 Give the script a `--check-only` flag for exactly that test, so CI can exercise the check without
 trying to open a window on a runner with no display.
 
+**Match the refusal against its reason, not just against a non-zero exit.** A refusal test that
+reads only the exit code passes when the script fails for an unrelated reason, and then the case it
+was written for has quietly stopped being covered. The template used to demonstrate this itself:
+after corrupting the AppImage it deleted `SHA256SUMS` from the same folder and asserted another
+refusal, but that folder already fails on the hash, so a broken missing-fingerprint branch would
+have looked tested. Restore the folder between cases and grep for the message each case is about.
+
+**Assert every refusal path the launcher has, not only the corrupted one.** A launcher that globs
+for the app (so the version can change without editing it) can find more than one, and picking
+either is a coin flip over which file gets launched. It should refuse, and something should prove
+it refuses.
+
+**Check placeholders in both directions.** A placeholder that survives substitution is an obvious
+failure and everybody catches it. A placeholder that was never in the source is silent: the `sed`
+succeeds, the build passes, and the instructions simply stop quoting the fingerprint, so the
+reader who wanted to compare it by hand finds nothing to compare against. Editing the prose is how
+that happens. Assert the placeholder is present before substituting, and absent afterwards.
+
+**Build the bundle before you compute the release checksums.** Otherwise the zip ships with no
+published hash of its own, which happened in dice-to-seed 1.3.5: the file whose whole purpose is
+carrying a fingerprint was the one file nobody could check.
+
 [`templates/tails-bundle/`](templates/tails-bundle/) has all three files, ready to adapt: the
 builder, the launcher, and the instructions with the version and hash substituted in.
+
+### Two checksum files at the release, and what each is for
+
+`SHA256SUMS` covering every published asset, generated after the zip exists, is what anyone
+verifying the zip needs. Keep the AppImage's own `<name>.sha256` as well: that is what somebody
+still holds years later, having kept the app and not the release page, and the AppImage is the file
+that actually survives on a stick.
+
+Two files carrying the same hash can disagree, so make that impossible rather than unlikely: verify
+both against the artifacts on disk in the same step that writes them.
+
+```bash
+sha256sum "$APPIMAGE" | tee "${APPIMAGE}.sha256"
+sha256sum "$APPIMAGE" "$BUNDLE" | tee SHA256SUMS
+sha256sum -c "${APPIMAGE}.sha256"
+sha256sum -c SHA256SUMS
+```
+
+Say in the release notes what these prove: that a file is intact and unaltered where it now sits.
+Not that it is genuine. They are not signatures and they travel with the files they describe. The
+tagged run's build log prints the same hashes, which is a second place to read them from, and
+saying so costs nothing.
+
+### The instructions name files another layer owns
+
+`READ-THIS-FIRST.txt` will name things from the application: the file the app produces, the
+documents it writes, the folder the user is told to look in. Those names change. A document that
+keeps naming the old one is worse than no document, because it is read at the moment somebody is
+looking for that exact file.
+
+The builder cannot see this: to a shell script the prose is prose. So pin it wherever the
+application's own test suite lives, by asserting that the instructions contain the constants the
+application defines. slip39-backup does this in
+[`Slip39Demo.Tests/Packaging/TailsBundleDocumentTests.cs`](https://github.com/PeteSparrowBTC/slip39-backup/blob/main/Slip39Demo.Tests/Packaging/TailsBundleDocumentTests.cs):
+the instructions must name the ciphertext that actually ships, must still carry the placeholders
+the build substitutes, must stay inside a printable width, and both the launcher and the
+instructions must still state what the check cannot do. That last one is the check worth copying:
+the sentence about integrity-not-provenance is the first thing a rewrite deletes.
 
 ### What is verified here and what is not
 
@@ -315,6 +377,12 @@ Field-tested on 2026-08-11, on Tails with `nautilus 48.3` and Archive Manager 44
 **Not yet field-tested:** the 644 recommendation above, which is reasoned rather than observed. The
 `chmod` happens on a file in Home, so there is no plausible failure, but the honest state of it is
 untested and this note stays until somebody runs it.
+
+Checked on 2026-08-28, in WSL rather than on Tails, which is enough for the assertion logic and
+says nothing about the file manager: the template's three refusal paths (corrupted AppImage, two
+AppImages, missing `SHA256SUMS`) each refuse with the message the assertion expects. The zip step
+and the stored-mode assertions were not run there, because that image has no `zip`; they run in
+slip39-backup's CI on every build.
 
 ## Proving it works, rather than hoping
 
@@ -336,6 +404,8 @@ thing.
 - Tauri Linux prerequisites: <https://tauri.app/start/prerequisites/>
 - A worked example, where all of the above came from:
   <https://github.com/PeteSparrowBTC/dice-to-seed>
+- A second one, whose release job carries the delivery half of this document:
+  <https://github.com/PeteSparrowBTC/slip39-backup>
 
 ---
 
